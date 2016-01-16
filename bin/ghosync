@@ -162,7 +162,7 @@ if action == 'push'
     status = response.status
 
     if status < 200 || status >= 300
-      binding.pry
+      puts "#{status}: #{response.body}"
     end
   end
 end
