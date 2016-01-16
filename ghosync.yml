@@ -1,2 +1,4 @@
+adapter: ghost
+format: common
 site: 'http://localhost:2368'
 path: './'
