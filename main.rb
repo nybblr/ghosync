@@ -34,7 +34,7 @@ response = conn.get '/ghost/api/v0.1/posts/' do |request|
   request.headers['Authorization'] = "Bearer #{token}"
   request.params['include'] = 'tags,author'
   request.params['status'] = 'all'
-  # request.params['limit'] = 25
+  request.params['limit'] = 1000
 end
 
 payload = JSON.parse(response.body)
@@ -80,6 +80,21 @@ def parse_liquid(string)
   [hash, md]
 end
 
+def middleman_upload_hash(( hash, md ), date, slug)
+  # binding.pry
+
+  {'posts' => [{
+    'title' => hash['title'],
+    'slug' => slug,
+    'published_at' => hash['date'].to_s,
+    'tags' => (hash['tags'] || "").split(/,\s*/).map {|t| { 'name' => t } },
+    'status' => hash['published'] == false ? 'draft' : 'published',
+    'meta_title' => nil,
+    'meta_description' => nil,
+    'markdown' => md
+  }]}
+end
+
 def upload_hash(( hash, md ))
   meta = hash.fetch('meta', {})
 
@@ -115,7 +130,8 @@ if action == 'upload'
     content = File.read(f)
 
     parse = parse_liquid(content)
-    hash = upload_hash(parse)
+    # hash = upload_hash(parse)
+    hash = middleman_upload_hash(parse, date, slug)
 
     [id, date, hash]
   end
@@ -124,12 +140,21 @@ if action == 'upload'
     path = id ? "posts/#{id}" : 'posts'
     method = id ? :put : :post
 
+    puts "#{method} to #{hash['posts'][0]['slug']}"
+
+    req = nil
+
     response = conn
         .run_request(method, "/ghost/api/v0.1/#{path}", hash.to_json, nil) do |request|
       request.headers['Authorization'] = "Bearer #{token}"
       request.headers['Content-Type'] = 'application/json'
+      req = request
     end
 
-    # binding.pry
+    status = response.status
+
+    if status < 200 || status >= 300
+      binding.pry
+    end
   end
 end
