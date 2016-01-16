@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'pry'
 
 require 'active_support'
@@ -9,6 +11,8 @@ require 'yaml'
 
 site = 'http://localhost:2368/'
 token = ENV['OAUTH_TOKEN']
+
+dir = ARGV[0]
 
 # client_id = ''
 # client_secret = ''
@@ -92,13 +96,13 @@ end
 # Persist files to disk
 if false
   files.each do |(_, name, content, _)|
-    File.write(File.join('./ex', name), content)
+    File.write(File.join(dir, name), content)
   end
 end
 
 # Upload files from disk
 if true
-  local = Dir['./ex/*.md'].map do |f|
+  local = Dir[File.join(dir, '*.md')].map do |f|
     base = File.basename(f, '.md')
     date, slug = /(\d{4}-\d{2}-\d{2})-(.+)/
       .match(base).captures
