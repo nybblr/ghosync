@@ -9,10 +9,12 @@ require 'oauth2'
 require 'json'
 require 'yaml'
 
-site = 'http://localhost:2368/'
 token = ENV['OAUTH_TOKEN']
 
-dir = ARGV[0]
+action = ARGV[0]
+dir = ARGV[1]
+site = ARGV[2]
+site ||= 'http://localhost:2368'
 
 # client_id = ''
 # client_secret = ''
@@ -94,14 +96,14 @@ def upload_hash(( hash, md ))
 end
 
 # Persist files to disk
-if false
+if action == 'download'
   files.each do |(_, name, content, _)|
     File.write(File.join(dir, name), content)
   end
 end
 
 # Upload files from disk
-if true
+if action == 'upload'
   local = Dir[File.join(dir, '*.md')].map do |f|
     base = File.basename(f, '.md')
     date, slug = /(\d{4}-\d{2}-\d{2})-(.+)/
