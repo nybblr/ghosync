@@ -12,9 +12,17 @@ require 'yaml'
 token = ENV['OAUTH_TOKEN']
 
 action = ARGV[0]
-dir = ARGV[1]
-site = ARGV[2]
-site ||= 'http://localhost:2368'
+
+default_config_path = File.expand_path(File.join(__FILE__, '../../ghosync.yml'))
+defaults = YAML.load_file(default_config_path)
+
+config_path = File.expand_path('ghosync.yml')
+config = YAML.load_file(config_path)
+
+options = defaults.deep_merge(config)
+
+dir = config['path']
+site = config['site']
 
 # client_id = ''
 # client_secret = ''
@@ -111,14 +119,14 @@ def upload_hash(( hash, md ))
 end
 
 # Persist files to disk
-if action == 'download'
+if action == 'pull'
   files.each do |(_, name, content, _)|
     File.write(File.join(dir, name), content)
   end
 end
 
 # Upload files from disk
-if action == 'upload'
+if action == 'push'
   local = Dir[File.join(dir, '*.md')].map do |f|
     base = File.basename(f, '.md')
     date, slug = /(\d{4}-\d{2}-\d{2})-(.+)/
