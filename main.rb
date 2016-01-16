@@ -27,6 +27,7 @@ conn = Faraday.new(url: site)
 response = conn.get '/ghost/api/v0.1/posts/' do |request|
   request.headers['Authorization'] = "Bearer #{token}"
   request.params['include'] = 'tags,author'
+  request.params['status'] = 'all'
   # request.params['limit'] = 25
 end
 
@@ -37,8 +38,12 @@ posts = payload.fetch("posts", [])
 divider = "---\n\n"
 
 files = posts.map do |post|
-  date = Date.parse(post['published_at'])
+  date = nil
+  if (date_string = post['published_at']).present?
+    date = Date.parse(date_string)
+  end
   slug = post['slug']
+  id = post['id']
 
   hash = {
     'title' => post['title'],
@@ -58,9 +63,67 @@ files = posts.map do |post|
   content = frontmatter + divider + post['markdown']
   name = "#{date}-#{slug}.md"
 
-  [name, content]
+  [id, name, content, hash]
 end
 
-files.each do |(name, content)|
-  File.write(File.join('./ex', name), content)
+def parse_liquid(string)
+  yaml_regex = /\A(---\s*\n.*?\n?)^((---|\.\.\.)\s*$\n?)/m
+  match = yaml_regex.match(string)
+  hash = YAML.load(match[1], safe: true)
+  md = match.post_match
+  [hash, md]
+end
+
+def upload_hash(( hash, md ))
+  meta = hash.fetch('meta', {})
+
+  {'posts' => [{
+    'title' => hash['title'],
+    'slug' => hash['slug'],
+    'published_at' => hash['date'].to_s,
+    'tags' => hash['tags'].map {|t| { 'name' => t } },
+    'status' => hash['published'] ? 'published' : 'draft',
+    'meta_title' => meta['title'],
+    'meta_description' => meta['description'],
+    'markdown' => md
+  }]}
+end
+
+# Persist files to disk
+if false
+  files.each do |(_, name, content, _)|
+    File.write(File.join('./ex', name), content)
+  end
+end
+
+# Upload files from disk
+if true
+  local = Dir['./ex/*.md'].map do |f|
+    base = File.basename(f, '.md')
+    date, slug = /(\d{4}-\d{2}-\d{2})-(.+)/
+      .match(base).captures
+
+    file = files.detect {|f| f[3]['slug'] == slug }
+    id = (file || [])[0]
+
+    content = File.read(f)
+
+    parse = parse_liquid(content)
+    hash = upload_hash(parse)
+
+    [id, date, hash]
+  end
+
+  local.each do |(id, _, hash)|
+    path = id ? "posts/#{id}" : 'posts'
+    method = id ? :put : :post
+
+    response = conn
+        .run_request(method, "/ghost/api/v0.1/#{path}", hash.to_json, nil) do |request|
+      request.headers['Authorization'] = "Bearer #{token}"
+      request.headers['Content-Type'] = 'application/json'
+    end
+
+    # binding.pry
+  end
 end
