@@ -5,7 +5,7 @@ require 'pry'
 require 'active_support'
 require 'active_support/core_ext'
 require 'faraday'
-require 'oauth2'
+# require 'oauth2'
 require 'json'
 require 'yaml'
 
@@ -42,6 +42,7 @@ conn = Faraday.new(url: site)
 response = conn.get '/ghost/api/v0.1/posts/' do |request|
   request.headers['Authorization'] = "Bearer #{token}"
   request.params['include'] = 'tags,author'
+  request.params['formats'] = 'mobiledoc'
   request.params['status'] = 'all'
   request.params['limit'] = 1000
 end
@@ -51,6 +52,16 @@ payload = JSON.parse(response.body)
 posts = payload.fetch("posts", [])
 
 divider = "---\n\n"
+
+def markdown_to_mobiledoc(md)
+  JSON.generate(
+    {version:"0.3.1",markups:[],atoms:[],cards:[["card-markdown",{cardName:"card-markdown",markdown:md}]],sections:[[10,0]]}
+  )
+end
+
+def mobiledoc_to_markdown(md)
+  JSON.parse(md)["cards"][0][1]["markdown"]
+end
 
 files = posts.map do |post|
   date = nil
@@ -75,7 +86,7 @@ files = posts.map do |post|
 
   frontmatter = YAML.dump(hash)
 
-  content = frontmatter + divider + post['markdown']
+  content = frontmatter + divider + mobiledoc_to_markdown(post['mobiledoc'])
   name = "#{date}-#{slug}.md"
 
   [id, name, content, hash]
@@ -94,8 +105,6 @@ def upload_hash(format, *args)
 end
 
 def middleman_upload_hash(( hash, md ), date, slug)
-  # binding.pry
-
   {'posts' => [{
     'title' => hash['title'],
     'slug' => slug,
@@ -104,7 +113,7 @@ def middleman_upload_hash(( hash, md ), date, slug)
     'status' => hash['published'] == false ? 'draft' : 'published',
     'meta_title' => nil,
     'meta_description' => nil,
-    'markdown' => md
+    'mobiledoc' => markdown_to_mobiledoc(md)
   }]}
 end
 
@@ -119,7 +128,7 @@ def common_upload_hash(( hash, md ), *args)
     'status' => hash['published'] ? 'published' : 'draft',
     'meta_title' => meta['title'],
     'meta_description' => meta['description'],
-    'markdown' => md
+    'mobiledoc' => markdown_to_mobiledoc(md)
   }]}
 end
 
