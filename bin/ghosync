@@ -66,7 +66,7 @@ end
 files = posts.map do |post|
   date = nil
   if (date_string = post['published_at']).present?
-    date = Date.parse(date_string)
+    date = DateTime.parse(date_string)
   end
   slug = post['slug']
   id = post['id']
@@ -74,7 +74,7 @@ files = posts.map do |post|
   hash = {
     'title' => post['title'],
     'slug' => slug,
-    'date' => date,
+    'date' => date.to_time,
     'author' => post['author']['name'],
     'tags' => post['tags'].map {|tag| tag['name'] },
     'published' => post['status'] == 'published',
@@ -85,9 +85,10 @@ files = posts.map do |post|
   }
 
   frontmatter = YAML.dump(hash)
+    .gsub('.000000000', '') # Hack off milliseconds
 
   content = frontmatter + divider + mobiledoc_to_markdown(post['mobiledoc'])
-  name = "#{date}-#{slug}.md"
+  name = "#{slug}.md"
 
   [id, name, content, hash]
 end
@@ -104,11 +105,11 @@ def upload_hash(format, *args)
   send("#{format}_upload_hash", *args)
 end
 
-def middleman_upload_hash(( hash, md ), date, slug)
+def middleman_upload_hash(( hash, md ), slug)
   {'posts' => [{
     'title' => hash['title'],
     'slug' => slug,
-    'published_at' => hash['date'].to_s,
+    'published_at' => hash['date'].iso8601,
     'tags' => (hash['tags'] || "").split(/,\s*/).map {|t| { 'name' => t } },
     'status' => hash['published'] == false ? 'draft' : 'published',
     'meta_title' => nil,
@@ -123,7 +124,7 @@ def common_upload_hash(( hash, md ), *args)
   {'posts' => [{
     'title' => hash['title'],
     'slug' => hash['slug'],
-    'published_at' => hash['date'].to_s,
+    'published_at' => hash['date'].iso8601,
     'tags' => hash['tags'].map {|t| { 'name' => t } },
     'status' => hash['published'] ? 'published' : 'draft',
     'meta_title' => meta['title'],
@@ -142,9 +143,7 @@ end
 # Upload files from disk
 if action == 'push'
   local = Dir[File.join(dir, '*.md')].map do |f|
-    base = File.basename(f, '.md')
-    date, slug = /(\d{4}-\d{2}-\d{2})-(.+)/
-      .match(base).captures
+    slug = File.basename(f, '.md')
 
     file = files.detect {|f| f[3]['slug'] == slug }
     id = (file || [])[0]
@@ -152,12 +151,12 @@ if action == 'push'
     content = File.read(f)
 
     parse = parse_liquid(content)
-    hash = upload_hash(format, parse, date, slug)
+    hash = upload_hash(format, parse, slug)
 
-    [id, date, hash]
+    [id, hash]
   end
 
-  local.each do |(id, _, hash)|
+  local.each do |(id, hash)|
     path = id ? "posts/#{id}" : 'posts'
     method = id ? :put : :post
 
