@@ -78,6 +78,7 @@ files = posts.map do |post|
     'author' => post['author']['name'],
     'tags' => post['tags'].map {|tag| tag['name'] },
     'published' => post['status'] == 'published',
+    'excerpt' => post['custom_excerpt'],
     'meta' => {
       'title' => post['meta_title'],
       'description' => post['meta_description']
@@ -127,6 +128,7 @@ def common_upload_hash(( hash, md ), *args)
     'published_at' => hash['date'].iso8601,
     'tags' => hash['tags'].map {|t| { 'name' => t } },
     'status' => hash['published'] ? 'published' : 'draft',
+    'custom_excerpt' => hash['excerpt'],
     'meta_title' => meta['title'],
     'meta_description' => meta['description'],
     'mobiledoc' => markdown_to_mobiledoc(md)
