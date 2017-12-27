@@ -66,7 +66,7 @@ end
 files = posts.map do |post|
   date = nil
   if (date_string = post['published_at']).present?
-    date = DateTime.parse(date_string)
+    date = Time.parse(date_string)
   end
   slug = post['slug']
   id = post['id']
@@ -74,7 +74,7 @@ files = posts.map do |post|
   hash = {
     'title' => post['title'],
     'slug' => slug,
-    'date' => date.to_time,
+    'date' => date,
     'author' => post['author']['name'],
     'tags' => post['tags'].map {|tag| tag['name'] },
     'published' => post['status'] == 'published',
